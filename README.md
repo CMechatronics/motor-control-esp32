@@ -97,17 +97,18 @@ The design prioritizes predictable behavior over aggressive responsiveness.
 
 The repository is organized to separate firmware, documentation, and media:
 
+```text
 ESP32-Motor-Control/
 ├── firmware/
-│ └── main.cpp ← ESP32 source code
+│   └── main.cpp            # Código fuente principal para ESP32
 ├── docs/
-│ ├── wiring.md ← Pinout, relay, LED and motor wiring
-│ ├── control-logic.md ← Motor control logic explanation
-│ └── encoder.md ← RPM measurement details
+│   ├── wiring.md           # Esquema de pines, relés, LEDs y motor
+│   ├── control-logic.md    # Explicación de la lógica de control
+│   └── encoder.md          # Detalles de la medición de RPM
 ├── media/
-│ ├── oled_demo.png ← OLED status screenshots
-│ └── wiring_diagram.png ← Wiring and layout diagram
-└── README.md ← Project overview
+│   ├── oled_demo.png       # Capturas de pantalla del estado en OLED
+│   └── wiring_diagram.png  # Diagrama de cableado y disposición
+└── README.md               # Descripción general del proyecto
 
 Keeping documentation concise improves readability and reflects professional engineering practices.
 
