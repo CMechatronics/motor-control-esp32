@@ -97,7 +97,6 @@ The design prioritizes predictable behavior over aggressive responsiveness.
 
 The repository is organized to separate firmware, documentation, and media:
 
-```text
 ESP32-Motor-Control/
 ├── firmware/
 │   └── main.cpp            # Código fuente principal para ESP32
