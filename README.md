@@ -110,9 +110,6 @@ ESP32-Motor-Control/
 │   └── wiring_diagram.png  # Diagrama de cableado y disposición
 └── README.md               # Descripción general del proyecto
 ```
-
-Keeping documentation concise improves readability and reflects professional engineering practices.
-
 ---
 
 ## Getting Started
