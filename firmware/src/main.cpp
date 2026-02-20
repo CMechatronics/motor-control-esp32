@@ -3,7 +3,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-/* 
+/*
 Bloque de código para hacer marcha paro e inversión de giro a un motor DC de inducción con dos led como indicadores.
 Como es para motores chicos de inducción no hay un relé térmico.
 
@@ -31,7 +31,7 @@ const int KM2 = 2;
 
 // Constantes para medir velociadad
 
-const int B1_SENSOR = 13; //Sensor infrarrojos B1 digital
+const int B1_SENSOR = 10; //Sensor infrarrojos B1 digital
 const int RANURAS_ENCODER = 10; // numero de ranura del encoder
 
 // Constantes para OLED 
@@ -45,6 +45,13 @@ Adafruit_SSD1306 oled(COLUMNAS, FILAS, &Wire, OLED_RESET);
 //--------------------------------------------------------------------------------------------------------------------------
 
 //Variables Globales
+
+  bool lastStateWasPetParada = false;
+  bool lastStateWasPetMarcha = false;
+  bool lastStateWasPetInversion = false;
+
+  bool lastStateErrorWasActDesacSimlt = false;
+  bool lastStateErrorWasMarchEInvSimlt = false;
 
   double lastRpmValue = 0;
 
@@ -77,8 +84,6 @@ void setup(){
 
   Wire.begin();
   oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  oled.clearDisplay();
-  oled.display();
 
 }
 
@@ -190,20 +195,6 @@ bool peticionParada (bool swParadaValue, bool swParadaEmergenciaValue){
 
 }
 
-bool peticionParadaEmergencia (bool swParadaEmergenciaValue){
-
-  bool result = false;
-
-  if (swParadaEmergenciaValue){
-
-    result = true;
-
-  }
-
-  return result;
-
-}
-
 //Posibilidad de inicio del sistema runSys
 
 bool esPosible (bool errorExist, bool peticionInicioExiste, bool petParoExiste, bool enMarcha, bool enInversion){
@@ -294,7 +285,7 @@ void paro (int pinKm1, int pinKM2){
 
   // paro = 0|0 = parada
 
-  //Serial.println ("\nSe ejecuta paro");
+  Serial.println ("\nSe ejecuta paro");
 
   digitalWrite (pinKm1,LOW);
   digitalWrite (pinKM2,LOW);
@@ -322,11 +313,11 @@ void sistema (bool sWarranque, bool sWparo, bool sWinversion, bool sWparadaEmerg
  
   if (runSys){ //El sistema arranca si se pide y no hay errores o bien sigue en marcha o inversion
 
-    //Serial.println("\nRunning");
+    Serial.println("\nRunning");
 
     if (!existePeticionInversion && (existePeticionMarcha || estaEnMarchaMotor)){
 
-      //Serial.println("\nPeticion marcha o sigue en marcha aceptada");
+      Serial.println("\nPeticion marcha o sigue en marcha aceptada");
 
       /*if (estaEnMarchaMotor){ //retraso en cambio de giro
 
@@ -341,7 +332,7 @@ void sistema (bool sWarranque, bool sWparo, bool sWinversion, bool sWparadaEmerg
 
     } else if (!existePeticionMarcha && (existePeticionInversion || estaEnInversionMotor)){
 
-      //Serial.println("\nPeticion inversion o sigue en inversion aceptada");
+      Serial.println("\nPeticion inversion o sigue en inversion aceptada");
 
      /*if (estaEnInversionMotor){ //retraso en cambio de giro
 
@@ -354,11 +345,14 @@ void sistema (bool sWarranque, bool sWparo, bool sWinversion, bool sWparadaEmerg
       digitalWrite (ledParo, LOW);
       digitalWrite (ledMarcha, HIGH);
 
+      Serial.println (km1Value);
+      Serial.println (km2Value);
+
     }
 
   } else {
 
-    //Serial.print("\nEn paro o existe error");
+    Serial.print("\nEn paro o existe error");
 
     paro(KM1, KM2);
 
@@ -373,35 +367,23 @@ void sistema (bool sWarranque, bool sWparo, bool sWinversion, bool sWparadaEmerg
 
 double calculaRpm (int pinInfraredSensor, int numeroRanurasEncoder){
 
-  // Time debe ser un parámetro que esté en minutos no en milisegundos
+// Time debe ser un parámetro que esté en minutos no en milisegundos
 
-  static unsigned long rpm = 0; // Variable que guarda el valor de las revoluciones por minuto
-  unsigned long endTime;
-  unsigned long elapsedTime;
-  double elapsedTimeMinutes;
-  bool infraredSensorValue = !digitalRead(pinInfraredSensor); // Lee el valor del sensor infrarrojo
+  static double rpm = 0;
+  double endTime;
+  double elapsedTime;
+  bool infraredSensorValue = digitalRead(pinInfraredSensor); 
   static bool lastInfraredSensorValue = LOW;
   static int cnt = 0;
-  static unsigned long startTime = 0;
+  static double startTime = millis(); //Captura el tiempo inicial
+  
 
-  // Monitorizar el estado del sensor infrarrojo
-  // Serial.print("Estado del sensor infrarrojo: ");
-  // Serial.println(infraredSensorValue);
 
-  // Detecta un flanco ascendente
-  if (infraredSensorValue == HIGH && lastInfraredSensorValue == LOW) {
-      
+  if (infraredSensorValue == HIGH && lastInfraredSensorValue == LOW){
+
     cnt++;
-    // Serial.print("Pulsos detectados: ");
-    // Serial.println(cnt);
 
-    if (cnt == 1) {
-      startTime = millis(); // Captura el tiempo inicial cuando se detecta el primer pulso
-    }
-    // Serial.print("startTime: ");
-    // Serial.println(startTime);
-
-  }
+  } 
 
   if (cnt >= numeroRanurasEncoder){
 
@@ -409,37 +391,20 @@ double calculaRpm (int pinInfraredSensor, int numeroRanurasEncoder){
     //Dividir 1 revolución por el tiempo se obtiene revolución por segundos
     //El tiempo se debe terminar dando en minutos para obtener revoluciones por cada minuto
 
-    // Serial.println ("Rotación completa");
+    Serial.print ("\nSe detectaron 10 pulsos, 1 rotación completa");
 
-    endTime = millis(); // Captura tiempo final cuando se detecta que se ha dado una revolución
-    elapsedTime = (endTime - startTime); // Calcula el tiempo transcurrido en milisegundos
-    elapsedTimeMinutes = (float)elapsedTime / 60000.0; // Convierte el tiempo a minutos
+    endTime = millis(); // captura tiempo final cuando se detecta que se ha dado una revolución
 
-    // Monitorizar tiempos y cálculo de RPM
-    // Serial.print("startTime: ");
-    // Serial.println(startTime);
-    // Serial.print("endTime: ");
-    // Serial.println(endTime);
-    // Serial.print("elapsedTime: ");
-    // Serial.println(elapsedTime);
-    // Serial.print("elapsedTimeMinutes: ");
-    // Serial.println(elapsedTimeMinutes);
+    elapsedTime = (endTime - startTime)/60000; // calcula el tiempo transcurrido hasta contar una revolución en minutos
 
-   if (elapsedTime > 0) {
-      rpm = 1.0 / elapsedTimeMinutes; // Calcula las RPM
-      Serial.print("RPM calculadas: ");
-      Serial.println(rpm);
-    } else {
-      rpm = 0; // Evita divisiones por 0
-      // Serial.println("Advertencia: Tiempo transcurrido es 0, RPM no calculadas.");
-    }
+    rpm = 1 / elapsedTime; // 1 = se ha dado una revolución
 
-    cnt = 0; // Reinicia el contador
-    startTime = millis(); // Reinicia el tiempo inicial
+    cnt = 0;
+    startTime = millis();
 
   }
 
-  lastInfraredSensorValue = infraredSensorValue; // Reinicia el valor del sensor infrarrojo para la siguiente iteración
+  lastInfraredSensorValue = infraredSensorValue;
 
   return rpm;
 
@@ -469,6 +434,39 @@ void muestraElError (bool activYDesactSimultanea, bool marchaEInverSimultanea){
 
   oled.display();
 
+    /*oled.clearDisplay();
+  oled.setTextColor(WHITE);
+  oled.setCursor(0,0);
+  oled.setTextSize(1);
+  oled.print ("Violacion del sistema:");
+  oled.display();
+ 
+  if (activYDesactSimultanea && marchaEInverSimultanea){
+
+    oled.setCursor(0,30);
+    oled.setTextSize(1);
+    oled.print ("1. Intento de giro en ambos sentidos simultaneamente");
+    oled.display();
+    
+    oled.setCursor(0,30);
+    oled.setTextSize(1);
+    oled.print ("2. Inteno de inicio mientras se encuentra en estado de parada o parada de emergencia");
+    oled.display();
+  
+  }*else if(activYDesactSimultanea){
+
+    oled.setCursor(0,20);
+    oled.print ("1. Inteno de inicio mientras se encuentra en estado de parada o parada de emergencia");
+    oled.display();
+
+  } else *//*if(marchaEInverSimultanea){
+
+    oled.setCursor(0,20);
+    oled.print ("1. Intento de giro en ambos sentidos simultaneamente");
+    oled.display();
+
+  }*/
+
 }
 
 void muestraInfoPeticion (bool swMarchaValue, bool swParoValue, bool swInversionValue){
@@ -494,100 +492,168 @@ void muestraInfoPeticion (bool swMarchaValue, bool swParoValue, bool swInversion
 
   oled.display();
 
-}
 
-void muestraEstadoMotor(bool motorEnMarcha, bool motorEnInversion, bool motorEnparo, bool paradaEmergencia, bool actDesacSimult){
-
-  if (paradaEmergencia){
+/*
+  if (swParoValue){
 
     oled.clearDisplay();
     oled.setTextColor(WHITE);
     oled.setCursor(0,0);
     oled.setTextSize(1);
-    oled.print ("System state: Error");
-  
-    oled.setCursor(0, 30);
-    oled.print ("PARADA EMERGENCIA");
-
-    oled.display();  
-
-    delay (2000);
-    
-  }else if (actDesacSimult){
-
-    oled.clearDisplay();
-    oled.setTextColor(WHITE);
-    oled.setCursor(0,0);
-    oled.setTextSize(1);
-    oled.print ("System state: Error");
-  
-    oled.setCursor(0, 30);
-    oled.print ("Activacion/Paro simultaneo");
-  
+    oled.print("System State: Running");
     oled.display();
 
-    delay(2000);
-
-
-  }else if (motorEnMarcha){
-
-    oled.clearDisplay();
-    oled.setTextColor(WHITE);
-    oled.setCursor(0,0);
+    oled.setCursor(10,30);
     oled.setTextSize(1);
-    oled.print("System state: running");
-
-    oled.setCursor(10, 30);
-    oled.print("Motor en marcha");
-
+    oled.print ("Parada solicitada");
     oled.display();
 
-  }else if (motorEnInversion){
+  }else if (swMarchaValue){
 
     oled.clearDisplay();
     oled.setTextColor(WHITE);
     oled.setCursor(0,0);
     oled.setTextSize(1);
-    oled.print("System state: running");
-
-    oled.setCursor(10, 30);
-    oled.print("Motor en inversion");
-
+    oled.print("System State: Running");
     oled.display();
 
-  }else if (motorEnparo){
+    oled.setCursor(10,30);
+    oled.setTextSize(1);
+    oled.print ("Marcha solicitada");
+    oled.display();
+
+  } else if (swInversionValue){
 
     oled.clearDisplay();
     oled.setTextColor(WHITE);
     oled.setCursor(0,0);
     oled.setTextSize(1);
-    oled.print("System state: stopped");
+    oled.print("System State: Running");
+    oled.display();
 
-    oled.setCursor(10, 30);
-    oled.print("Motor en parado");
+    oled.setCursor(40,30);
+    oled.setTextSize(1);
+    oled.print ("Inversion");
+    oled.display();
 
+    oled.setCursor(36,40);
+    oled.setTextSize(1);
+    oled.print ("solicitada");
     oled.display();
 
   }
+*/
 
 }
 
 void muestraRpm (double rpmValue){
   
-  // Serial.print("MUESTRA RMP");
+  Serial.print("MUESTRA RMP");
 
-  // oled.clearDisplay();
-  // oled.setTextColor(WHITE);
-  // oled.setCursor(0,0);
-  // oled.setTextSize(1);
-  // oled.print("System state: running");
+  oled.clearDisplay();
+  oled.setTextColor(WHITE);
+  oled.setCursor(0,0);
+  oled.setTextSize(1);
+  oled.print("System state: running");
 
   oled.setCursor(10, 30);
   oled.print("RPM:");
-  oled.setCursor(50, 40);
+  oled.setCursor(10, 40);
   oled.print(rpmValue);
 
   oled.display();
+
+  
+    /*oled.clearDisplay();
+    oled.setTextColor(WHITE);
+    oled.setCursor(0,0);
+    oled.setTextSize(1);
+    oled.print ("Estado del sistema: running");
+    oled.display();
+
+    oled.setCursor(10,30);
+    oled.setTextSize(1);
+    oled.print ("Velocidad del motor:");
+    oled.display();
+
+    oled.setCursor(10,40);
+    oled.setTextSize(1);
+    oled.print (rpmValue);
+    oled.display();
+*/
+
+
+}
+
+bool systemChangeState(bool petMarch, bool petParad, bool petInv, bool &lastStateWasPetMarch, bool &lastStateWasPetParad, bool &lastStateWasPetInv){
+
+  bool result = false;
+
+  if (petMarch != lastStateWasPetMarch){
+
+    result = true;
+
+  } else if (petParad != lastStateWasPetParad){
+
+    result = true;
+
+  } else if (petInv != lastStateWasPetInv){
+
+    result = true;
+
+  }
+
+  if (petMarch && !petParad && !petInv){
+
+    lastStateWasPetMarch = true;
+    lastStateWasPetParad = false;
+    lastStateWasPetInv = false;
+
+  } else if (!petMarch && petParad && !petInv){
+
+    lastStateWasPetMarch = false;
+    lastStateWasPetParad = true;
+    lastStateWasPetInv = false;
+
+  }else if (!petMarch && !petParad && petInv){
+
+    lastStateWasPetMarch = false;
+    lastStateWasPetParad = false;
+    lastStateWasPetInv = true;
+
+  }
+
+  return result;
+
+}
+
+bool systemChangeErrorState(bool errorActDesctSimlt, bool errorMarchEInvSimlt, bool &lastStateErrWasActDesctSimultanea, bool &lastStateErrWasMarcheInvSimultanea){
+
+  bool result = false;
+
+  if (errorActDesctSimlt != lastStateErrWasActDesctSimultanea){
+
+    result = true;
+
+  } else if ( errorMarchEInvSimlt != lastStateErrWasMarcheInvSimultanea){
+
+    result = true;
+
+  }
+  
+  if (errorActDesctSimlt && !errorMarchEInvSimlt){
+
+    lastStateErrWasActDesctSimultanea = true;
+    lastStateErrWasMarcheInvSimultanea = false;
+
+  } else if(!errorActDesctSimlt && errorMarchEInvSimlt){
+
+    lastStateErrWasActDesctSimultanea = false;
+    lastStateErrWasMarcheInvSimultanea = true;
+
+  }
+
+  return result;
 
 }
 
@@ -637,20 +703,41 @@ void loop(){
   bool petParada =  peticionParada(valorS2, valorS0);
   bool petMarcha = peticionMarcha(valorS1);
   bool petInversion = peticionInversion(valorS3);
-  bool peticionEmergencia = peticionParadaEmergencia(valorS0);
+  //bool petInicio = hayPeticionInicio(valorS1, valorS3); //podría sobrar
 
   bool actDesactSimlt = activacionYdesactvacionSimult(petMarcha, petInversion, petParada);
   bool marchEinvSimlt = marchaEinversionSimult(petMarcha, petInversion);
 
-  bool motorEnMarcha = estaEnMarcha(estadoKm1, estadoKm2);
-  bool motorEnInversion = estaEnInversion(estadoKm1, estadoKm2);
-  bool motorEnParo = estaEnParo(estadoKm1, estadoKm2);
+  //bool errorsExist = hayErrores(actDesactSimlt, marchEinvSimlt); //podría sobrar
 
-  /*muestraEstadoMotor verifica el estado del motor e imprime dicho estado
-  Si se pulsa pulsador de emergencia se mostrará y habrá un delay de 2 segundos en pantalla
-  También para actDesactSimlt
-  */
-  muestraEstadoMotor(motorEnMarcha, motorEnInversion, motorEnParo, peticionEmergencia, actDesactSimlt); 
-  //muestraRpm(rpm); //Muestra el valor de las revoluciones por minuto
+  //Verifica si hubo cambios de peticion y además guarda el ultimo valor de las peticiones
+
+  bool huboCambioDePeticion = systemChangeState (petMarcha, petParada, petInversion, lastStateWasPetMarcha, lastStateWasPetParada, lastStateWasPetInversion);
+  bool huboCambioDeErrores = systemChangeErrorState (actDesactSimlt, marchEinvSimlt, lastStateErrorWasActDesacSimlt, lastStateErrorWasMarchEInvSimlt);
+  bool huboCambioValorRpm = rpmValueChanged (rpm, lastRpmValue);
+
+  if (huboCambioDePeticion && !huboCambioDeErrores){
+
+    Serial.print("\nACCEDE A MUESTRA INFO PET");
+    muestraInfoPeticion(valorS1, valorS2, valorS3);
+    delay(100);
+  
+
+  } else if (huboCambioDeErrores){
+
+    Serial.print("\nACCEDE A MUESTRA EL ERROR");
+    muestraElError(actDesactSimlt, marchEinvSimlt); //simplificar función
+    delay(100);
+    
+
+  } else if (huboCambioValorRpm) { //si hay un cambio de rpm si se hace el calculo
+
+    Serial.print("\nACCEDE A MUESTRA RPM");
+    muestraRpm(rpm);
+    delay(100);
+    
+
+  }
+
 
 }
