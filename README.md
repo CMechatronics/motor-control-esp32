@@ -100,15 +100,15 @@ The repository is organized to separate firmware, documentation, and media:
 ```text
 ESP32-Motor-Control/
 ├── firmware/
-│   └── main.cpp            # Código fuente principal para ESP32
+│   └── main.cpp           
 ├── docs/
-│   ├── wiring.md           # Esquema de pines, relés, LEDs y motor
-│   ├── control-logic.md    # Explicación de la lógica de control
-│   └── encoder.md          # Detalles de la medición de RPM
+│   ├── wiring.md           
+│   ├── control-logic.md  
+│   └── encoder.md          
 ├── media/
-│   ├── oled_demo.png       # Capturas de pantalla del estado en OLED
-│   └── wiring_diagram.png  # Diagrama de cableado y disposición
-└── README.md               # Descripción general del proyecto
+│   ├── oled_demo.png       
+│   └── wiring_diagram.png 
+└── README.md               
 ```
 ---
 
